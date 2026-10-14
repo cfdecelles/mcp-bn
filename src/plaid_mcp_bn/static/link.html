@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Liaison bancaire</title>
+  <style>
+    body { font: 16px/1.5 system-ui, sans-serif; max-width: 32rem; margin: 4rem auto; padding: 0 1rem; color: #1a1a1a; background: #fff; }
+    button { font: inherit; padding: .6rem 1.2rem; border-radius: .4rem; border: 1px solid #1a1a1a; background: #1a1a1a; color: #fff; cursor: pointer; }
+    #statut { margin-top: 1.5rem; }
+    .ok { color: #1b7f3b; } .erreur { color: #b42318; }
+  </style>
+</head>
+<body>
+  <h1 id="titre">Liaison de votre compte</h1>
+  <p>Accès en <strong>lecture seule</strong> via Plaid. Vos identifiants bancaires sont saisis
+     dans Plaid et ne transitent jamais par cette application.</p>
+  <button id="ouvrir" type="button">Se connecter</button>
+  <p id="statut" role="status"></p>
+
+  <script id="cfg" type="application/json">__CONFIG__</script>
+  <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js"></script>
+  <script>
+    const cfg = JSON.parse(document.getElementById("cfg").textContent);
+    const statut = document.getElementById("statut");
+    const bouton = document.getElementById("ouvrir");
+    const retourOAuth = window.location.pathname === cfg.oauth_path;
+    if (cfg.update) document.getElementById("titre").textContent = "Reconnexion de votre compte";
+
+    function afficher(texte, classe) { statut.textContent = texte; statut.className = classe || ""; }
+    function terminer() { bouton.disabled = true; }
+
+    async function envoyer(chemin, donnees) {
+      const rep = await fetch(chemin, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(Object.assign({ nonce: cfg.nonce }, donnees)),
+      });
+      return rep.json().catch(() => ({ ok: false }));
+    }
+
+    const handler = Plaid.create({
+      token: cfg.link_token,
+      receivedRedirectUri: retourOAuth ? window.location.href : undefined,
+      onSuccess: async (public_token, metadata) => {
+        afficher("Finalisation…");
+        const rep = await envoyer("/api/success", {
+          public_token,
+          institution: metadata.institution ? metadata.institution.name : null,
+          accounts: (metadata.accounts || []).map(a => ({ name: a.name, mask: a.mask })),
+        });
+        terminer();
+        if (rep.ok) afficher("Compte lié. Vous pouvez fermer cette page.", "ok");
+        else afficher("Échec : " + (rep.message || "erreur inconnue") + ". Consultez le terminal.", "erreur");
+      },
+      onExit: async (err) => {
+        await envoyer("/api/exit", err ? { error_code: err.error_code,
+                                          error_message: err.display_message || err.error_message } : {});
+        terminer();
+        afficher(err ? "Erreur : " + (err.display_message || err.error_code) : "Liaison annulée.", err ? "erreur" : "");
+      },
+    });
+
+    bouton.addEventListener("click", () => handler.open());
+    handler.open();
+  </script>
+</body>
+</html>
