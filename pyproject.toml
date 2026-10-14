@@ -1,0 +1,35 @@
+[project]
+name = "plaid-mcp-bn"
+version = "0.1.0"
+description = "Serveur MCP en lecture seule pour consulter un compte Banque Nationale via Plaid"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "mcp>=2.3,<3",             # SDK MCP officiel (FastMCP y est devenu MCPServer en v2)
+    "plaid-python>=45,<46",    # SDK Plaid officiel, épinglé : l'API change souvent
+    "keyring>=25.7",           # trousseau macOS
+    "python-dotenv>=1.2",
+]
+
+[dependency-groups]
+dev = ["pytest>=8", "ruff>=0.6"]
+
+[project.scripts]
+plaid-bn = "plaid_mcp_bn.cli:main"          # link / status / revoke
+plaid-mcp-bn = "plaid_mcp_bn.server:main"   # lancé par Claude Desktop
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/plaid_mcp_bn"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["sandbox: appelle l'API Plaid Sandbox (réseau requis)"]
+addopts = "-m 'not sandbox'"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"

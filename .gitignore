@@ -1,0 +1,22 @@
+# Secrets et jetons : ne jamais versionner
+.env
+.env.*
+!.env.example
+*token*.json
+*.token
+access_token*
+*.cursor
+.plaid/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
+
+# Divers
+.DS_Store
